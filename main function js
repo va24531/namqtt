@@ -1,0 +1,51 @@
+-- All Zones Alert --
+https://api.weather.gov/alerts/active/zone/VAZ044
+
+-- Filtered Alerts --
+https://api.weather.gov/alerts/active?status=actual&message_type=alert,update&zone=VAZ044&limit=500
+
+After returning a parsed -JSON OBJECT-, process, loop and updating ...
+
+While processing, total NWS_Alerts/total_alerts and NWS_Alerts/last_update  MQTT Topics are sent to MQTT Server.
+The array final_output is just a HTML placeholder for up to 10 alerts. Each alert is logged into the array, then 
+processed for further details, building the HTML sentence that contains the information of severity, type, urgency, headline, etc, and
+pushes them to the MQTT Server as MWS_Alters/active_alerts_X (0-9) individually.
+
+-- Start Code ----------------------------------------------------------------------------------------------------------------------------------------------
+
+
+let all_alerts = msg.payload.features;
+let all_alerts_counter = all_alerts.length;
+
+let final_output = [];
+final_output[0] = 'No Active Alerts';   final_output[1] = ''; final_output[2] = ''; final_output[3] = ''; final_output[4] = '';
+final_output[5] = '';                   final_output[6] = ''; final_output[7] = ''; final_output[8] = ''; final_output[9] = '';
+// If you have more than 10 active alerts at one time, you have bigger problems!
+
+// Update alert counter
+    msg.topic = 'NWS_Alerts/total_alerts'; msg.payload = all_alerts_counter;
+        node.send(msg);
+
+const d1 = new Date(); let last_update = d1.toLocaleString();
+  msg.topic = 'NWS_Alerts/last_update'; msg.payload = last_update;
+  node.send(msg);
+
+//
+
+
+if (all_alerts_counter !== 0){
+    for (let i = 0; i < all_alerts_counter; i++) {
+        if (all_alerts[i].properties.status === 'Actual'){
+            final_output[i] = '[' + all_alerts[i].properties.severity + '] [' + all_alerts[i].properties.messageType + '] [' + all_alerts[i].properties.urgency + '] >>> ' + all_alerts[i].properties.parameters.NWSheadline + '.<br>';
+        }
+    } 
+}
+
+for (let i = 0; i < final_output.length; i++) {
+        msg.topic = 'NWS_Alerts/active_alert_' + i;
+        msg.payload = final_output[i];
+        node.send(msg);
+}
+
+
+-- End Code -----------------------------------------------------------------------------------------------------------------------------------
